@@ -1,0 +1,22 @@
+{
+  "entity_types": [
+    "Ministry",
+    "Scheme",
+    "Beneficiary",
+    "Department",
+    "Location",
+    "Organization",
+    "Policy",
+    "Act"
+  ],
+  "relation_types": [
+    "FUNDS",
+    "TARGETS",
+    "IMPLEMENTS",
+    "LAUNCHED_BY",
+    "BENEFITS",
+    "PART_OF",
+    "LOCATED_IN",
+    "GOVERNED_BY"
+  ]
+}
