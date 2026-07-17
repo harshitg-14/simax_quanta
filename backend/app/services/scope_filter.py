@@ -16,7 +16,7 @@ def check_scope(query: str) -> dict:
     Returns:
         {"in_scope": bool, "reason": str}
 
-    Fast single LLM call. Short-circuits the entire pipeline for off-topic queries.
+    Single LLM call. Short-circuits the entire pipeline for off-topic queries.
     """
     prompt = f"""You are a scope validator for a Government Document Intelligence system.
 The system ONLY answers questions about:
@@ -51,7 +51,6 @@ Rules:
             "reason":   result.get("reason", ""),
         }
     except Exception:
-        # On any failure, allow the query through — never block valid queries by mistake
         return {"in_scope": True, "reason": "filter error — defaulting to allow"}
 
 

@@ -43,8 +43,9 @@ def synthesis_agent(state: dict) -> dict:
 {history_section}
 Answer the question below using ONLY the document context provided.
 Cite section headings (e.g. "Chapter 2 > Section 4") when referencing content.
-If the answer is not in the context, say: "Information not found in uploaded documents."
-If the question is a follow-up, use the conversation history above to understand context.
+Only say "Information not found in uploaded documents." if you have read ALL the context below and genuinely cannot find any relevant information.
+If the question is a follow-up, use the conversation history above to understand what was previously discussed, then answer the CURRENT question from the document context.
+IMPORTANT: Do not assume the answer is "not found" just because the question mentions specific schemes by name — search the context carefully for ALL schemes, entities, or topics mentioned.
 
 Context:
 {context}

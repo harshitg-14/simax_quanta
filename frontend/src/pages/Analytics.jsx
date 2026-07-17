@@ -58,18 +58,15 @@ function ChartCard({ title, subtitle, children, minHeight = 240 }) {
 export default function Analytics() {
   const [summary, setSummary] = useState(null)
   const [queries, setQueries] = useState(null)
-  const [agents,  setAgents]  = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       api.get('/analytics/summary'),
       api.get('/analytics/queries'),
-      api.get('/analytics/agents'),
-    ]).then(([s, q, a]) => {
+    ]).then(([s, q]) => {
       setSummary(s.data)
       setQueries(q.data)
-      setAgents(a.data)
     }).catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -212,34 +209,6 @@ export default function Analytics() {
         </ChartCard>
       </div>
 
-      {/* Agent pipeline */}
-      <ChartCard title="Agent Pipeline Status" subtitle="11-stage multi-agent reasoning pipeline" minHeight={0}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-          {agents?.pipeline?.map((a, i) => (
-            <div key={i} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%', marginTop: 5, flexShrink: 0,
-                background: a.status === 'active' ? '#10B981' : '#EF4444',
-                boxShadow: a.status === 'active' ? '0 0 8px #10B98188' : 'none',
-              }} />
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 2 }}>{a.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{a.role}</div>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, marginTop: 4,
-                  color: a.phase === 6 ? '#F59E0B' : '#60A5FA',
-                }}>Phase {a.phase}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {(!agents?.pipeline || agents.pipeline.length === 0) && (
-          <div style={{ textAlign: 'center', color: 'var(--text-3)', padding: '24px 0', fontSize: 13 }}>
-            No agent data available.
-          </div>
-        )}
-      </ChartCard>
     </div>
   )
 }

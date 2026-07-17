@@ -71,14 +71,6 @@ export default function Dashboard({ user }) {
             Government Knowledge Intelligence Platform · {user?.role?.replace('_', ' ')}
           </p>
         </div>
-        <div style={{
-          fontSize: 11, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6,
-          background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 99, padding: '6px 14px',
-          flexShrink: 0,
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', animation: 'pulse 2s infinite' }} />
-          System Operational
-        </div>
       </div>
 
       {/* Stat cards */}
@@ -214,24 +206,7 @@ export default function Dashboard({ user }) {
             ))}
           </div>
 
-          {/* System info box */}
-          <div className="card" style={{ padding: '14px 16px', marginTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
-              Platform Info
-            </div>
-            {[
-              ['AI Model',   'Gemini 2.5 Flash'],
-              ['Embeddings', 'BGE-Large-EN v1.5'],
-              ['Graph DB',   'Neo4j 5'],
-              ['Vector DB',  'pgvector 1024-dim'],
-              ['Version',    'v4.0.0'],
-            ].map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-                <span style={{ color: 'var(--text-3)' }}>{k}</span>
-                <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{v}</span>
-              </div>
-            ))}
-          </div>
+         
         </div>
       </div>
 

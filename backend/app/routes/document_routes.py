@@ -18,6 +18,7 @@ from app.services.ai_service import enrich_metadata, answer_question
 from app.services.embedding_service import embed_query, embed_batch
 from app.services.graph_service import extract_entities, store_graph, delete_document_graph, search_graph, query_graph
 from app.services.chat_memory import add_message, get_history_text, clear_history
+from app.services.cache import flush_all as flush_query_cache
 from app.auth.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -308,6 +309,9 @@ async def upload_document(
         )
         t.start()
 
+        # Invalidate query cache — new document may affect existing answers
+        flush_query_cache()
+
         return {
             "message":           "Document saved. Embeddings and metadata generating in background.",
             "document_id":       document_id,
@@ -518,6 +522,9 @@ def delete_document(
     ))
     db.commit()
 
+    # Invalidate query cache — deleted document must not appear in future answers
+    flush_query_cache()
+
     return {"message": f"Document '{doc.file_name}' deleted successfully"}
 
 
@@ -630,9 +637,10 @@ def chat(
         chunks_used = len(fused)
 
         # ── 5. Generate answer ─────────────────────────────────────────────────
-        answer = answer_question(context, question, get_history_text())
-        add_message("User", question)
-        add_message("Assistant", answer)
+        user_id = current_user.get("sub")
+        answer = answer_question(context, question, get_history_text(user_id))
+        add_message(user_id, "User", question)
+        add_message(user_id, "Assistant", answer)
 
         db.add(AuditLog(
             id=str(uuid.uuid4()),
@@ -660,7 +668,7 @@ def chat(
 
 @router.post("/chat/clear")
 def clear_chat(current_user: dict = Depends(get_current_user)):
-    clear_history()
+    clear_history(current_user.get("sub"))
     return {"message": "Conversation history cleared"}
 
 

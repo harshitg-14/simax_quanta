@@ -1,19 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Trash2, Bot, User, ShieldCheck, AlertTriangle, Sparkles, Zap, Info } from 'lucide-react'
+import { Send, Trash2, Bot, User, ShieldCheck, AlertTriangle, Sparkles, Zap, Info, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import api from '../api'
 
-// Strip the "CONFIDENCE: High/Medium/Low" line the synthesis agent appends to answers —
-// it's already shown as a badge in the metadata panel.
-function cleanAnswer(text = '') {
-  return text.replace(/\n?CONFIDENCE:\s*(High|Medium|Low)\s*(\n|$)/gi, '').trim()
-}
-
-// Agents that do real specialist work (vs. validators)
 const SPECIALIST_AGENTS = new Set(['legal', 'financial', 'graph', 'calculation', 'summarization'])
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 function getMode(agentsUsed = []) {
   return agentsUsed.some(a => SPECIALIST_AGENTS.has(a)) ? 'multi-agent' : 'document-search'
+}
+
+function cleanAnswer(text = '') {
+  return text.replace(/\n?CONFIDENCE:\s*(High|Medium|Low)\s*(\n|$)/gi, '').trim()
 }
 
 function Badge({ children, color = '#3B82F6' }) {
@@ -21,8 +19,7 @@ function Badge({ children, color = '#3B82F6' }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
-      background: color + '22', color,
-      border: `1px solid ${color}33`,
+      background: color + '22', color, border: `1px solid ${color}33`,
     }}>
       {children}
     </span>
@@ -44,30 +41,11 @@ function ValidationPanel({ validation, escalate }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
         {[
-          {
-            icon: ShieldCheck, label: 'Gatekeeper',
-            main: gk.recommendation || 'approve',
-            mainColor: gk.recommendation === 'approve' ? '#10B981' : '#F59E0B',
-            sub: gk.flags?.join(', '),
-          },
-          {
-            icon: ShieldCheck, label: 'Auditor',
-            main: score !== null ? `Grounding: ${score}/100` : '—',
-            mainColor: scoreColor,
-            sub: `Hallucination: ${au.hallucination_risk || 'low'}`,
-            subColor: riskColor,
-          },
-          {
-            icon: escalate ? AlertTriangle : ShieldCheck, label: 'Strategist',
-            main: escalate ? 'Escalate' : 'Safe to release',
-            mainColor: escalate ? '#EF4444' : '#10B981',
-            sub: st.sensitivity_type && st.sensitivity_type !== 'none' ? st.sensitivity_type : null,
-          },
+          { icon: ShieldCheck, label: 'Gatekeeper', main: gk.recommendation || 'approve', mainColor: gk.recommendation === 'approve' ? '#10B981' : '#F59E0B', sub: gk.flags?.join(', ') },
+          { icon: ShieldCheck, label: 'Auditor', main: score !== null ? `Grounding: ${score}/100` : '—', mainColor: scoreColor, sub: `Hallucination: ${au.hallucination_risk || 'low'}`, subColor: riskColor },
+          { icon: escalate ? AlertTriangle : ShieldCheck, label: 'Strategist', main: escalate ? 'Escalate' : 'Safe to release', mainColor: escalate ? '#EF4444' : '#10B981', sub: st.sensitivity_type && st.sensitivity_type !== 'none' ? st.sensitivity_type : null },
         ].map(({ icon: Icon, label, main, mainColor, sub, subColor }) => (
-          <div key={label} style={{
-            background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px',
-            border: '1px solid rgba(255,255,255,0.05)',
-          }}>
+          <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
               <Icon size={11} style={{ color: mainColor }} />
               <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)' }}>{label}</span>
@@ -83,8 +61,6 @@ function ValidationPanel({ validation, escalate }) {
 
 function MessageMeta({ meta }) {
   if (!meta) return null
-
-  // Out-of-scope: show only a refusal badge
   if (meta.out_of_scope) {
     return (
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
@@ -92,56 +68,37 @@ function MessageMeta({ meta }) {
       </div>
     )
   }
-
-  const mode         = getMode(meta.agents)
-  const modeColor    = mode === 'multi-agent' ? '#F59E0B' : '#3B82F6'
-  const modeLabel    = mode === 'multi-agent' ? 'multi-agent' : 'document search'
-  const specialists  = (meta.agents || []).filter(a => SPECIALIST_AGENTS.has(a))
-  const confColor    = { high: '#10B981', medium: '#F59E0B', low: '#EF4444' }[meta.confidence] || '#6B7280'
-  const hasValidation = meta.validation && Object.keys(meta.validation).length > 0
+  const mode        = getMode(meta.agents)
+  const modeColor   = mode === 'multi-agent' ? '#F59E0B' : '#3B82F6'
+  const modeLabel   = mode === 'multi-agent' ? 'multi-agent' : 'document search'
+  const specialists = (meta.agents || []).filter(a => SPECIALIST_AGENTS.has(a))
+  const confColor   = { high: '#10B981', medium: '#F59E0B', low: '#EF4444' }[meta.confidence] || '#6B7280'
+  const hasVal      = meta.validation && Object.keys(meta.validation).length > 0
 
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-      {/* Row 1: badges */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         <Badge color={modeColor}>{modeLabel}</Badge>
         {meta.confidence && <Badge color={confColor}>{meta.confidence} confidence</Badge>}
         <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
           {meta.chunks} chunks · {meta.docs} doc{meta.docs !== 1 ? 's' : ''}
         </span>
-        {meta.graph_entities > 0 && (
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{meta.graph_entities} graph entities</span>
-        )}
+        {meta.graph_entities > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{meta.graph_entities} graph entities</span>}
       </div>
-
-      {/* Row 2: specialist agents */}
       {specialists.length > 0 && (
         <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
           <Sparkles size={11} style={{ color: '#F59E0B' }} />
           {specialists.join(' · ')}
         </div>
       )}
-
-      {/* Row 3: intent */}
-      {meta.intent && (
-        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, fontStyle: 'italic' }}>
-          Intent: {meta.intent}
-        </div>
-      )}
-
-      {/* Row 4: query was rewritten */}
+      {meta.intent && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, fontStyle: 'italic' }}>Intent: {meta.intent}</div>}
       {meta.query_rewritten && meta.resolved_query && (
-        <div style={{
-          marginTop: 6, display: 'flex', alignItems: 'flex-start', gap: 5,
-          fontSize: 11, color: '#60A5FA',
-        }}>
+        <div style={{ marginTop: 6, display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 11, color: '#60A5FA' }}>
           <Info size={11} style={{ marginTop: 1, flexShrink: 0 }} />
           <span>Interpreted as: <em>{meta.resolved_query}</em></span>
         </div>
       )}
-
-      {/* Validation panel */}
-      {hasValidation && <ValidationPanel validation={meta.validation} escalate={meta.escalate} />}
+      {hasVal && <ValidationPanel validation={meta.validation} escalate={meta.escalate} />}
     </div>
   )
 }
@@ -150,6 +107,7 @@ export default function Chat() {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [loading, setLoading]   = useState(false)
+  const [statusMsg, setStatusMsg] = useState('')
   const bottomRef = useRef()
   const inputRef  = useRef()
 
@@ -162,32 +120,96 @@ export default function Chat() {
     setQuestion('')
     setMessages(m => [...m, { role: 'user', text: q }])
     setLoading(true)
+    setStatusMsg('Connecting…')
+
+    // Add empty assistant message that will fill in via streaming
+    setMessages(m => [...m, { role: 'assistant', text: '', meta: null, streaming: true }])
+
     try {
-      const { data } = await api.post('/agents/query', { query: q })
-      setMessages(m => [...m, {
-        role: 'assistant',
-        text: data.answer,
-        meta: {
-          out_of_scope:    data.out_of_scope,
-          agents:          data.agents_used,
-          chunks:          data.chunks_used,
-          docs:            data.documents_used,
-          confidence:      data.confidence,
-          intent:          data.plan?.intent,
-          graph_entities:  data.graph_entities,
-          validation:      data.validation,
-          escalate:        data.escalate,
-          query_rewritten: data.query_rewritten,
-          resolved_query:  data.resolved_query,
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE}/agents/query/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query: q }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Server error ${response.status}`)
+      }
+
+      const reader  = response.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() // keep incomplete last line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let event
+          try { event = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (event.type === 'status') {
+            setStatusMsg(event.message)
+
+          } else if (event.type === 'token') {
+            accumulated += event.text
+            const snap = accumulated
+            setMessages(m => m.map((msg, i) =>
+              i === m.length - 1 ? { ...msg, text: snap } : msg
+            ))
+
+          } else if (event.type === 'done') {
+            const meta = event.meta
+            setMessages(m => m.map((msg, i) =>
+              i === m.length - 1
+                ? {
+                    ...msg,
+                    streaming: false,
+                    meta: {
+                      out_of_scope:    meta.out_of_scope,
+                      agents:          meta.agents_used,
+                      chunks:          meta.chunks_used,
+                      docs:            meta.documents_used,
+                      confidence:      meta.confidence,
+                      intent:          meta.plan?.intent,
+                      graph_entities:  meta.graph_entities,
+                      validation:      meta.validation,
+                      escalate:        meta.escalate,
+                      query_rewritten: meta.query_rewritten,
+                      resolved_query:  meta.resolved_query,
+                    },
+                  }
+                : msg
+            ))
+
+          } else if (event.type === 'error') {
+            setMessages(m => m.map((msg, i) =>
+              i === m.length - 1
+                ? { ...msg, text: 'Error: ' + event.message, streaming: false }
+                : msg
+            ))
+          }
         }
-      }])
+      }
     } catch (err) {
-      setMessages(m => [...m, {
-        role: 'assistant',
-        text: 'Error: ' + (err.response?.data?.detail || 'Something went wrong'),
-      }])
+      setMessages(m => m.map((msg, i) =>
+        i === m.length - 1
+          ? { ...msg, text: 'Error: ' + (err.message || 'Something went wrong'), streaming: false }
+          : msg
+      ))
     } finally {
       setLoading(false)
+      setStatusMsg('')
     }
   }
 
@@ -202,14 +224,11 @@ export default function Chat() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexShrink: 0 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
-            Document Q&A
-          </h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 3px', letterSpacing: '-0.4px' }}>Document Q&A</h1>
           <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
             Intelligent search · Agents activated automatically for complex queries
           </p>
         </div>
-
         <button onClick={clear} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
           background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
@@ -227,19 +246,11 @@ export default function Chat() {
 
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--text-3)' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: 18, margin: '0 auto 16px',
-              background: 'rgba(59,130,246,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div style={{ width: 60, height: 60, borderRadius: 18, margin: '0 auto 16px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Bot size={26} color="#3B82F6" />
             </div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 6px' }}>
-              Ask anything about your documents
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
-              Try: "What is PM-KISAN?" or "Who benefits from STARTUP INDIA?"
-            </p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 6px' }}>Ask anything about your documents</p>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Try: "What is PM-KISAN?" or "Who benefits from STARTUP INDIA?"</p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
               {['What schemes are available?', 'Summarize the latest circular', 'Who is the nodal ministry?'].map(s => (
                 <button key={s} onClick={() => { setQuestion(s); inputRef.current?.focus() }} style={{
@@ -258,7 +269,7 @@ export default function Chat() {
         )}
 
         {messages.map((m, i) => {
-          const mode = m.meta ? getMode(m.meta.agents) : 'document-search'
+          const mode        = m.meta ? getMode(m.meta.agents) : 'document-search'
           const isMultiAgent = mode === 'multi-agent'
 
           return (
@@ -266,41 +277,49 @@ export default function Chat() {
               {m.role === 'assistant' && (
                 <div style={{
                   width: 32, height: 32, borderRadius: 10, flexShrink: 0, marginTop: 2,
-                  background: m.meta?.out_of_scope
-                    ? 'rgba(239,68,68,0.15)'
-                    : isMultiAgent
-                      ? 'rgba(245,158,11,0.15)'
-                      : 'rgba(59,130,246,0.15)',
+                  background: m.meta?.out_of_scope ? 'rgba(239,68,68,0.15)' : isMultiAgent ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)',
                   border: `1px solid ${m.meta?.out_of_scope ? '#EF444444' : isMultiAgent ? '#F59E0B44' : '#3B82F644'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {isMultiAgent && !m.meta?.out_of_scope
                     ? <Zap size={15} color="#F59E0B" />
-                    : <Bot size={15} color={m.meta?.out_of_scope ? '#EF4444' : '#60A5FA'} />
-                  }
+                    : <Bot size={15} color={m.meta?.out_of_scope ? '#EF4444' : '#60A5FA'} />}
                 </div>
               )}
 
               <div style={{
                 maxWidth: 660,
-                background: m.role === 'user'
-                  ? 'linear-gradient(135deg, #3B82F6, #6366F1)'
-                  : 'var(--bg-card)',
+                background: m.role === 'user' ? 'linear-gradient(135deg, #3B82F6, #6366F1)' : 'var(--bg-card)',
                 border: m.role === 'user' ? 'none' : '1px solid var(--border)',
                 borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
                 padding: '12px 16px',
                 boxShadow: m.role === 'user' ? '0 4px 20px rgba(99,102,241,0.3)' : '0 2px 8px rgba(0,0,0,0.2)',
               }}>
                 {m.role === 'user' ? (
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: '#fff' }}>
-                    {m.text}
-                  </p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: '#fff' }}>{m.text}</p>
                 ) : (
-                  <div className="md-body">
-                    <ReactMarkdown>{cleanAnswer(m.text)}</ReactMarkdown>
-                  </div>
+                  <>
+                    {/* Streaming status indicator */}
+                    {m.streaming && !m.text && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 12 }}>
+                        <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                        {statusMsg || 'Thinking…'}
+                      </div>
+                    )}
+                    {/* Answer text — renders as it streams in */}
+                    {m.text && (
+                      <div className="md-body">
+                        <ReactMarkdown>{cleanAnswer(m.text)}</ReactMarkdown>
+                        {/* Blinking cursor while streaming */}
+                        {m.streaming && (
+                          <span style={{ display: 'inline-block', width: 2, height: 14, background: '#3B82F6', marginLeft: 2, animation: 'blink-cursor 0.8s step-end infinite', verticalAlign: 'text-bottom' }} />
+                        )}
+                      </div>
+                    )}
+                    {/* Metadata — shown only after streaming finishes */}
+                    {!m.streaming && <MessageMeta meta={m.meta} />}
+                  </>
                 )}
-                <MessageMeta meta={m.meta} />
               </div>
 
               {m.role === 'user' && (
@@ -317,32 +336,6 @@ export default function Chat() {
           )
         })}
 
-        {loading && (
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(59,130,246,0.15)',
-              border: '1px solid #3B82F644',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Bot size={15} color="#60A5FA" />
-            </div>
-            <div style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: '4px 16px 16px 16px', padding: '14px 18px',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              {[0, 1, 2].map(j => (
-                <div key={j} className="dot-blink" style={{
-                  width: 7, height: 7, borderRadius: '50%', background: '#3B82F6',
-                  animationDelay: `${j * 0.18}s`,
-                }} />
-              ))}
-              <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 8 }}>thinking…</span>
-            </div>
-          </div>
-        )}
-
         <div ref={bottomRef} />
       </div>
 
@@ -357,16 +350,11 @@ export default function Chat() {
           value={question}
           onChange={e => setQuestion(e.target.value)}
           placeholder="Ask a question about your documents…"
-          style={{
-            flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            padding: '10px 14px', fontSize: 14, color: 'var(--text-1)',
-          }}
+          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', padding: '10px 14px', fontSize: 14, color: 'var(--text-1)' }}
         />
         <button type="submit" disabled={loading || !question.trim()} style={{
           width: 42, height: 42, borderRadius: 10, border: 'none', cursor: 'pointer',
-          background: loading || !question.trim()
-            ? 'var(--bg-elevated)'
-            : 'linear-gradient(135deg, #3B82F6, #6366F1)',
+          background: loading || !question.trim() ? 'var(--bg-elevated)' : 'linear-gradient(135deg, #3B82F6, #6366F1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.2s', flexShrink: 0,
           opacity: loading || !question.trim() ? 0.45 : 1,

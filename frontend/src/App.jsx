@@ -24,7 +24,8 @@ function RoleRoute({ user, allowed, children }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null)
+  const [user,  setUser]  = useState(null)
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
 
   useEffect(() => {
     const stored = localStorage.getItem('user')
@@ -33,10 +34,17 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
   const handleLogin = (userData) => {
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
   }
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
   return (
     <BrowserRouter>
@@ -45,29 +53,23 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/*" element={
           <ProtectedRoute user={user}>
-            <Layout user={user}>
+            <Layout user={user} theme={theme} onToggleTheme={toggleTheme}>
               <Routes>
                 <Route path="/"          element={<Dashboard user={user} />} />
                 <Route path="/documents" element={<Documents user={user} />} />
                 <Route path="/chat"      element={<Chat user={user} />} />
                 <Route path="/graph"     element={<Graph />} />
                 <Route path="/graphviz"  element={<GraphViz />} />
-
-                {/* Analytics: admin, department_officer, auditor */}
                 <Route path="/analytics" element={
                   <RoleRoute user={user} allowed={['admin', 'department_officer', 'auditor']}>
                     <Analytics />
                   </RoleRoute>
                 } />
-
-                {/* Audit Logs: admin, auditor only */}
                 <Route path="/audit" element={
                   <RoleRoute user={user} allowed={['admin', 'auditor']}>
                     <AuditLogs />
                   </RoleRoute>
                 } />
-
-                {/* User Management: admin only */}
                 <Route path="/users" element={
                   <RoleRoute user={user} allowed={['admin']}>
                     <UserManagement user={user} />

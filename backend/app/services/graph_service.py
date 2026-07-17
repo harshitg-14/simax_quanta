@@ -11,9 +11,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEO4J_URI      = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER     = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Simax@123")
+NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
+NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+if not NEO4J_PASSWORD:
+    raise RuntimeError("NEO4J_PASSWORD environment variable is not set")
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../graph_config.json")
 

@@ -15,6 +15,7 @@ venv/
 env/
 .env
 *.env
+.env.local
 
 # Uploads (user-uploaded documents — not source code)
 backend/uploads/

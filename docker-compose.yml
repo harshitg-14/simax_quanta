@@ -59,6 +59,8 @@ services:
       NEO4J_PASSWORD: Simax@123
       SECRET_KEY: simax-quanta-secret-key
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
     ports:
       - "8000:8000"
     volumes:

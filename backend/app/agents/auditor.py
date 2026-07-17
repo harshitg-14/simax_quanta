@@ -43,6 +43,12 @@ Rules:
 - "citations_present": Does the response cite specific sections or headings?
 - "unsupported_claims": List any claims in the response NOT found in source documents
 - "hallucination_risk": "low" (score>70), "medium" (40-70), "high" (<40)
+
+CRITICAL RULES — read carefully before scoring:
+1. If the response says "Information not found in uploaded documents" or "not mentioned in the documents" or "not covered in available documents" → grounding_score = 95, hallucination_risk = "low". This is the CORRECT honest answer and is fully grounded.
+2. If the response says a specific entity or person is NOT eligible / NOT a beneficiary of a scheme → treat this as grounded if the source documents describe who IS eligible (absence of mention is valid evidence). Score >= 70.
+3. Only give a low grounding_score (< 40) if the response makes SPECIFIC FABRICATED CLAIMS (invented facts, numbers, or names) that are completely absent from the source documents.
+4. A response that accurately summarizes what the documents DO say — even if that summary answers "this isn't covered" — is GROUNDED.
 """
 
     validation = {

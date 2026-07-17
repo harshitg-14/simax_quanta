@@ -378,8 +378,8 @@ export default function Graph() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               {!pathResult.found ? (
                 <p className="text-gray-400 text-sm">
-                  No path found between <span className="text-white">{fromEntity}</span> and{' '}
-                  <span className="text-white">{toEntity}</span>. They may not be connected in the graph.
+                  No path found between <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{fromEntity}</span> and{' '}
+                  <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{toEntity}</span>. They may not be connected in the graph.
                 </p>
               ) : (
                 <>
@@ -392,13 +392,13 @@ export default function Graph() {
                       <div key={i} className="flex items-center gap-2">
                         <div className="flex flex-col items-center">
                           <span className={`text-xs px-2 py-0.5 rounded-full mb-1 ${tc(node.type)}`}>{node.type}</span>
-                          <span className="text-sm font-medium text-white bg-gray-800 px-3 py-1.5 rounded-lg">
+                          <span className="text-sm font-medium bg-gray-800 px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-1)' }}>
                             {node.name}
                           </span>
                         </div>
                         {i < pathResult.relations.length && (
                           <div className="flex flex-col items-center text-xs text-gray-500">
-                            <span className="mb-1 text-[10px] bg-gray-800 px-1.5 py-0.5 rounded">
+                            <span className="mb-1 text-[10px] bg-gray-800 px-1.5 py-0.5 rounded" style={{ color: 'var(--text-2)' }}>
                               {pathResult.relations[i].replace(/_/g, ' ')}
                             </span>
                             <ArrowRight size={14} />
