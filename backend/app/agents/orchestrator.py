@@ -51,7 +51,8 @@ def run_specialists_parallel(state: dict) -> dict:
     combined_outputs = {}
     agents_that_ran  = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(to_run)) as executor:
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(to_run))
+    try:
         futures = {name: executor.submit(fn, state) for name, fn in to_run.items()}
         for name, future in futures.items():
             try:
@@ -61,34 +62,44 @@ def run_specialists_parallel(state: dict) -> dict:
                     agents_that_ran.append(name)
             except Exception as e:
                 print(f"[{name}_agent] parallel error: {e}")
+    finally:
+        executor.shutdown(wait=False)  # don't block on stragglers past their own timeout
 
     return {"agent_outputs": combined_outputs, "agents_used": agents_that_ran}
 
 
 def run_validators_parallel(state: dict) -> dict:
-    """Run gatekeeper + auditor + strategist in parallel — replaces 3 sequential nodes."""
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        gk_f = executor.submit(gatekeeper, state)
-        au_f = executor.submit(auditor,    state)
-        st_f = executor.submit(strategist, state)
+    """Run gatekeeper + auditor + strategist in parallel.
 
-        gk_result = gk_f.result(timeout=60)
-        au_result = au_f.result(timeout=60)
-        st_result = st_f.result(timeout=60)
+    A slow/failed validator must never take down an already-synthesized answer —
+    each result degrades independently to "validation_unavailable" on error/timeout.
+    """
+    validators = {"gatekeeper": gatekeeper, "auditor": auditor, "strategist": strategist}
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+    try:
+        futures = {name: executor.submit(fn, state) for name, fn in validators.items()}
+        results = {}
+        for name, future in futures.items():
+            try:
+                results[name] = future.result(timeout=60)
+            except Exception as e:
+                print(f"[{name}] validator error: {e}")
+                results[name] = None
+    finally:
+        executor.shutdown(wait=False)  # don't block on stragglers past their own timeout
 
     combined_validation = {}
-    combined_validation.update(gk_result.get("validation", {}))
-    combined_validation.update(au_result.get("validation", {}))
-    combined_validation.update(st_result.get("validation", {}))
-
-    escalate = (
-        gk_result.get("escalate", False) or
-        au_result.get("escalate", False) or
-        st_result.get("escalate", False)
-    )
-
     agents_used = list(state.get("agents_used", []))
-    agents_used.extend(["gatekeeper", "auditor", "strategist"])
+    escalate = False
+
+    for name, result in results.items():
+        if result is None:
+            combined_validation[name] = {"error": "validation_unavailable"}
+            continue
+        combined_validation.update(result.get("validation", {}))
+        agents_used.append(name)
+        escalate = escalate or result.get("escalate", False)
 
     return {
         "validation":  combined_validation,
@@ -189,13 +200,15 @@ def run_agent_query(query: str, db, history: list = None) -> dict:
     grounding_score = au.get("grounding_score", 100)
     gk_rejected     = gk.get("recommendation") == "reject"
 
-    if gk_rejected and grounding_score < 30:
+    # Gatekeeper reject (irrelevant/harmful) stands on its own — groundedness is a
+    # separate axis (auditor) and must not be able to override a relevance/safety veto.
+    if gk_rejected:
         final_answer = (
             "Your question could not be answered adequately from the available "
             "documents. Please try rephrasing your question or upload documents "
             "that cover this topic."
         )
-    elif grounding_score < 5 and not gk_rejected:
+    elif grounding_score < 5:
         final_answer = (
             "I found relevant documents but could not generate a sufficiently "
             "grounded answer. The retrieved content may be incomplete or ambiguous. "

@@ -14,6 +14,7 @@ const ACTION_CFG = {
 }
 
 function getCfg(action) {
+  if (action === 'escalated') return ESCALATED_CFG
   return ACTION_CFG[action] || {
     color: 'var(--text-3)', bg: 'rgba(255,255,255,0.06)', border: 'var(--border)',
     label: action || '—', icon: Shield,
@@ -49,7 +50,12 @@ function ActionBadge({ action }) {
   )
 }
 
-const FILTER_TABS = ['all', 'query', 'rejected', 'upload', 'delete']
+const FILTER_TABS = ['all', 'query', 'rejected', 'upload', 'delete', 'escalated']
+
+const ESCALATED_CFG = {
+  color: '#EF4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)',
+  label: 'Escalated', icon: AlertTriangle,
+}
 
 export default function AuditLogs() {
   const [logs,    setLogs]    = useState([])
@@ -69,7 +75,8 @@ export default function AuditLogs() {
   useEffect(() => { fetchLogs() }, [])
 
   const filtered = logs.filter(l => {
-    if (filter !== 'all' && l.action !== filter) return false
+    if (filter === 'escalated') { if (!l.escalate) return false }
+    else if (filter !== 'all' && l.action !== filter) return false
     if (search) {
       const q = search.toLowerCase()
       return (l.query || '').toLowerCase().includes(q) ||
@@ -79,11 +86,12 @@ export default function AuditLogs() {
   })
 
   const counts = {
-    total:    logs.length,
-    query:    logs.filter(l => l.action === 'query').length,
-    rejected: logs.filter(l => l.action === 'rejected').length,
-    upload:   logs.filter(l => l.action === 'upload').length,
-    delete:   logs.filter(l => l.action === 'delete').length,
+    total:     logs.length,
+    query:     logs.filter(l => l.action === 'query').length,
+    rejected:  logs.filter(l => l.action === 'rejected').length,
+    upload:    logs.filter(l => l.action === 'upload').length,
+    delete:    logs.filter(l => l.action === 'delete').length,
+    escalated: logs.filter(l => l.escalate).length,
   }
 
   if (error) return (
@@ -124,13 +132,14 @@ export default function AuditLogs() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Total',    value: counts.total,    color: 'var(--text-2)' },
-          { label: 'Queries',  value: counts.query,    color: '#3B82F6' },
-          { label: 'Rejected', value: counts.rejected, color: '#EF4444' },
-          { label: 'Uploads',  value: counts.upload,   color: '#10B981' },
-          { label: 'Deletes',  value: counts.delete,   color: '#F59E0B' },
+          { label: 'Total',     value: counts.total,     color: 'var(--text-2)' },
+          { label: 'Queries',   value: counts.query,     color: '#3B82F6' },
+          { label: 'Rejected',  value: counts.rejected,  color: '#EF4444' },
+          { label: 'Uploads',   value: counts.upload,    color: '#10B981' },
+          { label: 'Deletes',   value: counts.delete,    color: '#F59E0B' },
+          { label: 'Escalated', value: counts.escalated, color: '#EF4444' },
         ].map(s => (
           <div key={s.label} className="card" style={{ padding: '14px 16px' }}>
             <div style={{ fontSize: 24, fontWeight: 800, color: s.color, letterSpacing: '-0.5px', lineHeight: 1 }}>
@@ -245,7 +254,10 @@ export default function AuditLogs() {
 
                       {/* Action badge */}
                       <td style={{ padding: '12px 16px', borderBottom: borderStyle, width: 110 }}>
-                        <ActionBadge action={l.action} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <ActionBadge action={l.action} />
+                          {l.escalate && <ActionBadge action="escalated" />}
+                        </div>
                       </td>
 
                       {/* User */}

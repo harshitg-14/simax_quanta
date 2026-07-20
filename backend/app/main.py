@@ -24,6 +24,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS processing_status VARCHAR DEFAULT 'ready'"))
     _conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS supersedes_id VARCHAR DEFAULT NULL"))
     _conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_hash VARCHAR DEFAULT NULL"))
+    _conn.execute(text("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS escalate BOOLEAN DEFAULT FALSE"))
     _conn.commit()
 
 app = FastAPI(

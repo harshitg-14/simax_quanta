@@ -54,6 +54,7 @@ def agent_query(
             user_id=user_id,
             query=f"[AGENT] {query}",
             response=result["answer"][:500],
+            escalate=result.get("escalate", False),
         ))
         db.commit()
 
@@ -93,6 +94,7 @@ async def agent_query_stream(
                 user_id=user_id,
                 query=f"[AGENT] {query}",
                 response=result.get("answer", "")[:500],
+                escalate=result.get("escalate", False),
             ))
             db.commit()
         except Exception as exc:

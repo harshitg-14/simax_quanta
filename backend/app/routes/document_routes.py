@@ -687,6 +687,8 @@ def audit_logs(
             "user_id":     l.user_id,
             "document_id": l.document_id,
             "query":       l.query,
+            "response":    l.response,
+            "escalate":    bool(l.escalate),
             "timestamp":   str(l.timestamp)
         }
         for l in logs

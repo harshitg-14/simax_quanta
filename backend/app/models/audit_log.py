@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime
+from sqlalchemy import Column, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.database.base import Base
 
@@ -12,4 +12,5 @@ class AuditLog(Base):
     document_id = Column(String)
     query       = Column(Text)
     response    = Column(Text)
+    escalate    = Column(Boolean, default=False)   # flagged by strategist for human review
     timestamp   = Column(DateTime, server_default=func.now())
